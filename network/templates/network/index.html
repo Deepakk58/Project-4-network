@@ -1,5 +1,190 @@
 {% extends "network/layout.html" %}
 
 {% block body %}
-    TODO
+
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== "") {
+                const cookies = document.cookie.split(";");
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.startsWith(name + "=")) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function edit(id, postMesg) {
+            document.querySelector(`#post_${id}`).style.display = "none";
+            document.querySelector(`#post_${id}form`).style.display = "block";
+            document.querySelector(`#editedContent_${id}`).value = postMesg;
+        }
+
+        function cancel(id) {
+            document.querySelector(`#post_${id}`).style.display = "block";
+            document.querySelector(`#post_${id}form`).style.display = "none";
+            document.querySelector(`#editedContent_${id}`).value = "";
+        }
+
+        function save(id) {
+            event.preventDefault();
+            const text = document.querySelector(`#editedContent_${id}`).value;
+            const post = document.querySelector(`#post_${id} .post-content`);
+
+            fetch(`/edit/${id}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken")
+                },
+                body: JSON.stringify({
+                    content: text
+                })
+            })
+            .then(response => response.json())
+            .then(result => {  
+                post.innerHTML = result.data;              
+                document.querySelector(`#post_${id}`).style.display = "block";
+                document.querySelector(`#post_${id}form`).style.display = "none";
+            })
+        }
+
+        function like(id, liked) {
+            const btn = document.querySelector(`#like_${id}`);
+            const counter = document.querySelector(`#counter_${id}`);
+            let likes = parseInt(counter.innerHTML);
+            
+            btn.classList.remove('fa-solid');
+            btn.classList.remove('fa-regular');
+
+            if (liked === true) {
+                fetch(`/unlike/${id}`)
+                .then(response => response.json)
+                .then(result => {
+                    likes--;
+                    counter.innerHTML = likes;
+                    btn.classList.add('fa-regular');
+                    btn.setAttribute("onclick", `like(${id}, false)`);
+                })
+            }
+            else {
+                fetch(`/like/${id}`)
+                .then(response => response.json)
+                .then(result => {
+                    likes++;
+                    counter.innerHTML = likes;
+                    btn.classList.add('fa-solid');
+                    btn.setAttribute("onclick", `like(${id}, true)`);
+                })
+            }
+        }
+    </script>
+
+    <h2 class="ml-2">All Posts</h2>
+
+    {% if user.is_authenticated %}
+
+        <div class="border border rounded p-3 mx-2">
+            <h5>New Post</h5>
+            <form action="{% url 'newPost' %}" method="post">
+                {% csrf_token %}
+                <div class="form-group mb-1">
+                    <textarea name="content" class="form-control"></textarea>
+                </div>
+
+                <input class="btn btn-primary" type="submit" value="Post">
+            </form>
+        </div>
+
+    {% endif %}
+    
+    {% for post in page_obj %}
+
+        <div class="border border rounded p-3 m-2">
+
+            <div id="post_{{ post.id }}">
+
+                <a href="{% url 'profile' post.owner.id%}">{{ post.owner }}</a>
+                <p class="post-content">{{ post.content }}</p>
+                <div class="text-secondary">
+                    <div>{{ post.date }}</div>
+                    {% if not user.is_authenticated %}
+                        <i class="fa-regular fa-thumbs-up"></i> 
+                    {% else %}
+                        {% if user in post.likes.all %}
+                            <i class="fa-solid fa-thumbs-up" id="like_{{post.id}}" onclick="like('{{ post.id }}', true)"></i> 
+                        {% else %}
+                            <i class="fa-regular fa-thumbs-up" id="like_{{post.id}}" onclick="like('{{ post.id }}', false)"></i> 
+                        {% endif %}
+                    {% endif %}
+                    <a id="counter_{{post.id}}">{{ post.likes.count }}</a>
+                </div>
+    
+                {% if user == post.owner %}
+                    <button type="button" class="btn btn-success btn-sm" onclick="edit('{{ post.id }}', '{{ post.content }}')">Edit</button>
+                {% endif %}
+
+            </div>
+            
+            <div id="post_{{ post.id }}form" style="display: none;">
+                <h5>Edit Post</h5>
+                <form onsubmit="save('{{ post.id }}')">
+                    {% csrf_token %}
+                    <div class="form-group mb-1">
+                        <textarea name="content" id="editedContent_{{ post.id }}" class="form-control"></textarea>
+                    </div>
+
+                    <input class="btn btn-success btn-sm mb-1" type="submit" value="Save" id="submit_{{ post.id }}">
+                </form>
+                <button class="btn btn-danger btn-sm" onclick="cancel('{{ post.id }}')">Cancel</button>
+            </div>
+
+        </div>
+
+        
+    {% empty %}
+        
+        <p>No Posts.</p>
+        
+    {% endfor %}
+
+    <nav aria-label="...">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+                </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                    <li class="page-item active" aria-current="page">
+                        <a class="page-link" href="?page={{ num }}">{{ num }} <span class="sr-only">(current)</span></a>
+                    </li>
+                {% else %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{num}}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Next</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    
+
 {% endblock %}
