@@ -2,189 +2,126 @@
 
 {% block body %}
 
-    <script>
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== "") {
-                const cookies = document.cookie.split(";");
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.startsWith(name + "=")) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
+    <div class="container mt-4">
+        <h2 class="mb-4">All Posts</h2>
 
-        function edit(id, postMesg) {
-            document.querySelector(`#post_${id}`).style.display = "none";
-            document.querySelector(`#post_${id}form`).style.display = "block";
-            document.querySelector(`#editedContent_${id}`).value = postMesg;
-        }
-
-        function cancel(id) {
-            document.querySelector(`#post_${id}`).style.display = "block";
-            document.querySelector(`#post_${id}form`).style.display = "none";
-            document.querySelector(`#editedContent_${id}`).value = "";
-        }
-
-        function save(id) {
-            event.preventDefault();
-            const text = document.querySelector(`#editedContent_${id}`).value;
-            const post = document.querySelector(`#post_${id} .post-content`);
-
-            fetch(`/edit/${id}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": getCookie("csrftoken")
-                },
-                body: JSON.stringify({
-                    content: text
-                })
-            })
-            .then(response => response.json())
-            .then(result => {  
-                post.innerHTML = result.data;              
-                document.querySelector(`#post_${id}`).style.display = "block";
-                document.querySelector(`#post_${id}form`).style.display = "none";
-            })
-        }
-
-        function like(id, liked) {
-            const btn = document.querySelector(`#like_${id}`);
-            const counter = document.querySelector(`#counter_${id}`);
-            let likes = parseInt(counter.innerHTML);
-            
-            btn.classList.remove('fa-solid');
-            btn.classList.remove('fa-regular');
-
-            if (liked === true) {
-                fetch(`/unlike/${id}`)
-                .then(response => response.json)
-                .then(result => {
-                    likes--;
-                    counter.innerHTML = likes;
-                    btn.classList.add('fa-regular');
-                    btn.setAttribute("onclick", `like(${id}, false)`);
-                })
-            }
-            else {
-                fetch(`/like/${id}`)
-                .then(response => response.json)
-                .then(result => {
-                    likes++;
-                    counter.innerHTML = likes;
-                    btn.classList.add('fa-solid');
-                    btn.setAttribute("onclick", `like(${id}, true)`);
-                })
-            }
-        }
-    </script>
-
-    <h2 class="ml-2">All Posts</h2>
-
-    {% if user.is_authenticated %}
-
-        <div class="border border rounded p-3 mx-2">
-            <h5>New Post</h5>
-            <form action="{% url 'newPost' %}" method="post">
-                {% csrf_token %}
-                <div class="form-group mb-1">
-                    <textarea name="content" class="form-control"></textarea>
+        {% if user.is_authenticated %}
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">New Post</h5>
+                    <form action="{% url 'newPost' %}" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <textarea name="content" class="form-control newPost" rows="3" placeholder="What's on your mind?"></textarea>
+                            <div class="d-flex justify-content-between mt-2">
+                                <small class="text-muted postLen">0/300</small>
+                                <small class="text-muted">Max 300 characters</small>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary w-100 postButton" type="submit">Post</button>
+                    </form>
                 </div>
-
-                <input class="btn btn-primary" type="submit" value="Post">
-            </form>
-        </div>
-
-    {% endif %}
-    
-    {% for post in page_obj %}
-
-        <div class="border border rounded p-3 m-2">
-
-            <div id="post_{{ post.id }}">
-
-                <a href="{% url 'profile' post.owner.id%}">{{ post.owner }}</a>
-                <p class="post-content">{{ post.content }}</p>
-                <div class="text-secondary">
-                    <div>{{ post.date }}</div>
-                    {% if not user.is_authenticated %}
-                        <i class="fa-regular fa-thumbs-up"></i> 
-                    {% else %}
-                        {% if user in post.likes.all %}
-                            <i class="fa-solid fa-thumbs-up" id="like_{{post.id}}" onclick="like('{{ post.id }}', true)"></i> 
-                        {% else %}
-                            <i class="fa-regular fa-thumbs-up" id="like_{{post.id}}" onclick="like('{{ post.id }}', false)"></i> 
-                        {% endif %}
-                    {% endif %}
-                    <a id="counter_{{post.id}}">{{ post.likes.count }}</a>
-                </div>
-    
-                {% if user == post.owner %}
-                    <button type="button" class="btn btn-success btn-sm" onclick="edit('{{ post.id }}', '{{ post.content }}')">Edit</button>
-                {% endif %}
-
             </div>
-            
-            <div id="post_{{ post.id }}form" style="display: none;">
-                <h5>Edit Post</h5>
-                <form onsubmit="save('{{ post.id }}')">
-                    {% csrf_token %}
-                    <div class="form-group mb-1">
-                        <textarea name="content" id="editedContent_{{ post.id }}" class="form-control"></textarea>
+        
+        {% endif %}
+
+        {% for post in page_obj %}
+            <div class="card mb-3 shadow-sm" id="post_{{ post.id }}box">
+                <div class="card-body">
+                    <div id="post_{{ post.id }}">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <a href="{% url 'profile' post.owner.id %}" class="fw-bold">{{ post.owner }}</a>
+                            </div>
+                            {% if user == post.owner %}
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-success rounded-0" onclick="edit('{{ post.id }}')">
+                                        <i class="fa-solid fa-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger rounded-0" onclick="deletePost('{{ post.id }}')">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <p class="post-content my-2">{{ post.content }}</p>
+
+                        <div class="d-flex justify-content-between text-muted">
+                            <small>{{ post.date }}</small>
+                            <div>
+                                {% if not user.is_authenticated %}
+                                    <i class="fa-regular fa-thumbs-up me-1"></i>
+                                {% else %}
+                                    {% if user in post.likes.all %}
+                                        <i class="fa-solid fa-thumbs-up text-primary me-1" id="like_{{ post.id }}" onclick="like('{{ post.id }}', true)"></i>
+                                    {% else %}
+                                        <i class="fa-regular fa-thumbs-up text-primary me-1" id="like_{{ post.id }}" onclick="like('{{ post.id }}', false)"></i>
+                                    {% endif %}
+                                {% endif %}
+                                <span id="counter_{{ post.id }}">{{ post.likes.count }}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <input class="btn btn-success btn-sm mb-1" type="submit" value="Save" id="submit_{{ post.id }}">
-                </form>
-                <button class="btn btn-danger btn-sm" onclick="cancel('{{ post.id }}')">Cancel</button>
+                    <div id="post_{{ post.id }}form" class="mb-3" style="display: none;">
+                        
+                        <h6 class="card-title">Edit Post</h6>
+                        <form onsubmit="save('{{ post.id }}', event)">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <textarea name="content" id="editedContent_{{ post.id }}" class="form-control editPost" rows="3" placeholder="Edit your post..."></textarea>
+                            </div>
+                
+                            <div class="d-flex justify-content-between text-muted small mb-3">
+                                <span class="editLen">0/300</span>
+                                <span>Max 300 characters</span>
+                            </div>
+                
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-success btn-sm editButton" type="submit" id="submit_{{ post.id }}">Save</button>
+                                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="cancel('{{ post.id }}')">Cancel</button>
+                            </div>
+                        </form>
+                       
+                    </div>
+                    
+                </div>
             </div>
+        {% empty %}
+            <p class="text-center text-muted">No Posts.</p>
+        {% endfor %}
 
-        </div>
-
-        
-    {% empty %}
-        
-        <p>No Posts.</p>
-        
-    {% endfor %}
-
-    <nav aria-label="...">
-        <ul class="pagination">
-            {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
-                </li>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-                {% if num == page_obj.number %}
-                    <li class="page-item active" aria-current="page">
-                        <a class="page-link" href="?page={{ num }}">{{ num }} <span class="sr-only">(current)</span></a>
+        <nav aria-label="Post navigation">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
                     </li>
                 {% else %}
-                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{num}}</a></li>
+                    <li class="page-item disabled">
+                        <a class="page-link">Previous</a>
+                    </li>
                 {% endif %}
-            {% endfor %}
 
-            {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Next</a>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
+                {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <a class="page-link">Next</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
     
 
 {% endblock %}

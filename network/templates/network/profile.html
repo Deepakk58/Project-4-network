@@ -1,86 +1,136 @@
 {% extends "network/layout.html" %}
 
 {% block body %}
-    <h3 class="ml-2">{{ loadedUser.username }}</h3>
-    <div class="d-flex ml-2">
-        <div class="col-auto">Followers: {{ follower.count }}</div>
-        <div class="col-auto ml-2">Following: {{ following.count }}</div>
-    </div>
 
-    {% if user.is_authenticated and user != loadedUser %}
-        {% if follows %}
-            <a href="{% url 'unfollow' loadedUser.id %}" class="btn btn-danger btn-sm ml-4 my-3">Unfollow</a>
-            <!-- <button class="btn btn-danger ml-2 my-2">Unfollow</button> -->
-        {% else %}
-            <a href="{% url 'follow' loadedUser.id %}" class="btn btn-info btn-sm ml-4 my-3">Follow</a>
-            <!-- <button class="btn btn-info ml-2 my-2">Follow</button> -->
-        {% endif %}
-    {% endif %}
+    <div class="container mt-4">
 
-    <hr>
-    <h5 class="ml-2">Posts:</h5>
-
-    {% for post in page_obj %}
-
-        <div class="border border rounded p-3 m-2">
-
-            <div>
-
-                <a href="{% url 'profile' post.owner.id%}">{{ post.owner }}</a>
-                <p class="post-content">{{ post.content }}</p>
-                <div class="text-secondary">
-                    <div>{{ post.date }}</div>
-                    {% if user in post.likes.all %}
-                        <i class="fa-solid fa-thumbs-up"></i> 
-                    {% else %}
-                        <i class="fa-regular fa-thumbs-up"></i> 
-                    {% endif %}
-                    {{ post.likes.count }}
+        <!-- User Header -->
+        <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                    <h3 class="fw-bold mb-2">{{ loadedUser.username }}</h3>
+                    <div class="d-flex gap-4 text-muted small">
+                        <span><i class="fa-solid fa-user-group me-1"></i> Followers: {{ follower.count }}</span>
+                        <span class="ml-4"><i class="fa-solid fa-user-plus me-1"></i> Following: {{ following.count }}</span>
+                    </div>
                 </div>
-
+        
+                {% if user.is_authenticated and user != loadedUser %}
+                    <div class="mt-2 mt-md-0">
+                        {% if follows %}
+                            <a href="{% url 'unfollow' loadedUser.id %}" class=" btn btn-outline-danger btn-sm">
+                                <i class="fa-solid fa-user-minus me-1"></i> Unfollow
+                            </a>
+                        {% else %}
+                            <a href="{% url 'follow' loadedUser.id %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fa-solid fa-user-plus me-1"></i> Follow
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </div>
-
+        
+            <hr class="mt-3">
         </div>
+        
+        <h5 class="fw-semibold mb-3">Posts</h5>
 
+        {% for post in page_obj %}
+            <div class="card mb-3 shadow-sm" id="post_{{ post.id }}box">
+                <div class="card-body">
+                    <div id="post_{{ post.id }}">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <a href="{% url 'profile' post.owner.id %}" class="fw-bold">{{ post.owner }}</a>
+                            </div>
+                            {% if user == post.owner %}
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-success rounded-0" onclick="edit('{{ post.id }}')">
+                                    <i class="fa-solid fa-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger rounded-0" onclick="deletePost('{{ post.id }}')">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
 
-    {% empty %}
+                        <p class="post-content my-2">{{ post.content }}</p>
 
-        <p>No Posts.</p>
+                        <div class="d-flex justify-content-between text-muted">
+                            <small>{{ post.date }}</small>
+                            <div>
+                                {% if not user.is_authenticated %}
+                                    <i class="fa-regular fa-thumbs-up me-1"></i>
+                                {% else %}
+                                    {% if user in post.likes.all %}
+                                        <i class="fa-solid fa-thumbs-up text-primary me-1" id="like_{{ post.id }}" onclick="like('{{ post.id }}', true)"></i>
+                                    {% else %}
+                                        <i class="fa-regular fa-thumbs-up text-primary me-1" id="like_{{ post.id }}" onclick="like('{{ post.id }}', false)"></i>
+                                    {% endif %}
+                                {% endif %}
+                                <span id="counter_{{ post.id }}">{{ post.likes.count }}</span>
+                            </div>
+                        </div>
+                    </div>
 
-    {% endfor %}
+                    <div id="post_{{ post.id }}form" class="mb-3" style="display: none;">
+                        
+                        <h6 class="card-title">Edit Post</h6>
+                        <form onsubmit="save('{{ post.id }}', event)">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <textarea name="content" id="editedContent_{{ post.id }}" class="form-control editPost" rows="3" placeholder="Edit your post..."></textarea>
+                            </div>
+                
+                            <div class="d-flex justify-content-between text-muted small mb-3">
+                                <span class="editLen">0/300</span>
+                                <span>Max 300 characters</span>
+                            </div>
+                
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-success btn-sm editButton" type="submit" id="submit_{{ post.id }}">Save</button>
+                                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="cancel('{{ post.id }}')">Cancel</button>
+                            </div>
+                        </form>
+                       
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <p class="text-center text-muted">No Posts.</p>
+        {% endfor %}
 
-    <nav aria-label="...">
-        <ul class="pagination">
-            {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
-                </li>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-                {% if num == page_obj.number %}
-                    <li class="page-item active" aria-current="page">
-                        <a class="page-link" href="?page={{ num }}">{{ num }} <span class="sr-only">(current)</span></a>
+        <nav aria-label="Post navigation">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
                     </li>
                 {% else %}
-                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{num}}</a></li>
+                    <li class="page-item disabled">
+                        <a class="page-link">Previous</a>
+                    </li>
                 {% endif %}
-            {% endfor %}
 
-            {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Next</a>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
+                {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <a class="page-link">Next</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+
+    </div>
 
 {% endblock %}

@@ -1,0 +1,26 @@
+textarea.form-control {
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    resize: none;
+}
+
+
+@keyframes hide {
+    0% {
+        opacity: 1;
+        max-height: 1000px;
+    }
+    50% {
+        opacity: 0;
+        max-height: 1000px;
+    }
+    100% {
+        opacity: 0;
+        max-height: 0px;
+    }
+}
+
+.hideclass {
+    overflow: hidden;
+    animation: hide 1s ease-in-out forwards;
+}

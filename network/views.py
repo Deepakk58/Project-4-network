@@ -6,14 +6,17 @@ from django.urls import reverse
 import json
 from django.http import JsonResponse
 from django.core.paginator import Paginator
+from django.contrib.auth.decorators import login_required
 
 from .models import *
 
 import datetime
 
 
+
+
 def index(request):
-    allPosts = Post.objects.all().order_by("date").reverse()
+    allPosts = Post.objects.all().order_by("-date")
     paginator = Paginator(allPosts, 10)
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
@@ -76,9 +79,12 @@ def register(request):
     else:
         return render(request, "network/register.html")
 
+
+@login_required
 def newPost(request):
     if request.method == "POST":
-        content = request.POST["content"]
+        content = request.POST["content"].strip()
+        
         current_time = datetime.datetime.now().replace(microsecond=0)
         post = Post (
             content = content,
@@ -86,25 +92,50 @@ def newPost(request):
             date = current_time
         )
         post.save()
-        return HttpResponseRedirect(reverse("index"))
+    return HttpResponseRedirect(reverse("index"))
+    
+    
+@login_required
+def edit(request, post_id):
+    
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required."}, status=400)
+    
+    try:
+        post = Post.objects.get(pk=post_id)
+    except Post.DoesNotExist:
+        return JsonResponse({"error": "Post not found."}, status=404)
+    
+    if request.user != post.owner:
+        return JsonResponse({"error": "You are not authorized to edit this post."}, status=403)
+    
+    body = json.loads(request.body)
+    post.content = body["content"]
+    post.save()
+    return JsonResponse({"message": "Change Successful", "data": body["content"]})
     
 
-def edit(request, post_id):
-    if request.method == "POST":
-        post = Post.objects.get(pk = post_id)
-        body = json.loads(request.body)
-        post.content = body["content"]
-        post.save()
-        return JsonResponse({"message": "Change successful", "data": body["content"]})
+@login_required
+def delete(request, post_id):    
+    try:
+        post = Post.objects.get(pk=post_id)
+    except Post.DoesNotExist:
+        return JsonResponse({"error": "Post not found."}, status=404)
     
+    if request.user == post.owner:
+        post.delete()
+        return JsonResponse({"message": "Deleted successfully."})
+    else:
+        return JsonResponse({"error": "You are not authorized to delete this post."}, status=403)
+
+
+@login_required
 def following(request):
     currUser = request.user
 
-    # Get the list of users that the current user follows
     followed_users = Follow.objects.filter(follower=currUser).values_list('followed', flat=True)
 
-    # Fetch posts only from followed users
-    posts = Post.objects.filter(owner__in=followed_users).order_by('date')
+    posts = Post.objects.filter(owner__in=followed_users).order_by('-date')
 
     paginator = Paginator(posts, 10)
     page_number = request.GET.get('page')
@@ -116,13 +147,15 @@ def following(request):
         "page_obj": page
     })
 
+
 def profile(request, user_id):
+    
     currUser = request.user
     user = User.objects.get(pk=user_id)
     followings = Follow.objects.filter(follower = user).values_list('followed', flat=True)
     followers = Follow.objects.filter(followed = user).values_list('follower', flat=True)
 
-    posts = Post.objects.filter(owner = user).order_by('date').reverse()
+    posts = Post.objects.filter(owner = user).order_by('-date')
 
     follows = currUser.id in followers
 
@@ -141,33 +174,46 @@ def profile(request, user_id):
     })
 
 
+@login_required
 def follow(request, user_id):
     currUser = request.user
     user = User.objects.get(pk = user_id)
-    follow = Follow(
-        follower = currUser,
-        followed = user 
-    )
-    follow.save()
-    return HttpResponseRedirect(reverse("profile", args=(user.id,)))
+    if not Follow.objects.filter(follower=currUser, followed=user).exists():
+        follow = Follow(
+            follower = currUser,
+            followed = user 
+        )
+        follow.save()
+    return HttpResponseRedirect(reverse("profile", args=(user_id,)))
 
 
+@login_required
 def unfollow(request, user_id):
     currUser = request.user
     user = User.objects.get(pk = user_id)
     print(user, currUser)
     follow = Follow.objects.filter(follower = currUser, followed = user)
-   
-    follow.delete()
-    return HttpResponseRedirect(reverse("profile", args=(user.id,)))
+
+    if follow.exists():
+        follow.delete()
+    return HttpResponseRedirect(reverse("profile", args=(user_id,)))
 
 
+@login_required
 def like(request, post_id):
-    post = Post.objects.get(pk = post_id)
+    try:
+        post = Post.objects.get(pk=post_id)
+    except Post.DoesNotExist:
+        return JsonResponse({"error": "Post not found."}, status=404)
     post.likes.add(request.user)
     return JsonResponse({"message": "Like added!"})
 
+
+@login_required
 def unlike(request, post_id):
-    post = Post.objects.get(pk = post_id)
+    try:
+        post = Post.objects.get(pk=post_id)
+    except Post.DoesNotExist:
+        return JsonResponse({"error": "Post not found."}, status=404)
     post.likes.remove(request.user)
     return JsonResponse({"message": "Like removed!"})

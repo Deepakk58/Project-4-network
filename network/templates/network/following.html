@@ -1,69 +1,77 @@
 {% extends "network/layout.html" %}
 
 {% block body %}
-    <h2 class="ml-2">All Posts</h2>
-    
-    {% for post in page_obj %}
 
-        <div class="border border rounded p-3 m-2">
+    <div class="container mt-4"> 
 
-            <div>
+        <h2 class="mb-4">All Posts</h2>
+        
+        {% for post in page_obj %}
+            <div class="card mb-3 shadow-sm">
+                <div class="card-body">
+                    <div id="post_{{ post.id }}">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <a href="{% url 'profile' post.owner.id %}" class="fw-bold">{{ post.owner }}</a>
+                            </div>
+                            {% if user == post.owner %}
+                                <button class="btn btn-sm btn-outline-success" onclick="edit('{{ post.id }}', '{{ post.content }}')">Edit</button>
+                            {% endif %}
+                        </div>
 
-                <a href="{% url 'profile' post.owner.id%}">{{ post.owner }}</a>
-                <p class="post-content">{{ post.content }}</p>
-                <div class="text-secondary">
-                    <div>{{ post.date }}</div>
-                    {% if user in post.likes.all %}
-                        <i class="fa-solid fa-thumbs-up"></i> 
-                    {% else %}
-                        <i class="fa-regular fa-thumbs-up"></i> 
-                    {% endif %}
-                    {{ post.likes.count }}
+                        <p class="post-content my-2">{{ post.content }}</p>
+
+                        <div class="d-flex justify-content-between text-muted" >
+                            <small>{{ post.date }}</small>
+                            <div>
+                                
+                                {% if user in post.likes.all %}
+                                    <i class="fa-solid fa-thumbs-up text-primary me-1" id="like_{{ post.id }}" onclick="like('{{ post.id }}', true)"></i>
+                                {% else %}
+                                    <i class="fa-regular fa-thumbs-up text-primary me-1" id="like_{{ post.id }}" onclick="like('{{ post.id }}', false)"></i>
+                                {% endif %}
+                                
+                                <span id="counter_{{ post.id }}">{{ post.likes.count }}</span>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
-
             </div>
+        {% empty %}
+            <p class="text-center text-muted">No Posts.</p>
+        {% endfor %}
 
-        </div>
-
-
-    {% empty %}
-
-        <p>No Posts.</p>
-
-    {% endfor %}
-
-    <nav aria-label="...">
-        <ul class="pagination">
-            {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
-                </li>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-                {% if num == page_obj.number %}
-                    <li class="page-item active" aria-current="page">
-                        <a class="page-link" href="?page={{ num }}">{{ num }} <span class="sr-only">(current)</span></a>
+        <nav aria-label="Post navigation">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
                     </li>
                 {% else %}
-                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{num}}</a></li>
+                    <li class="page-item disabled">
+                        <a class="page-link">Previous</a>
+                    </li>
                 {% endif %}
-            {% endfor %}
 
-            {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Next</a>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
+                {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <a class="page-link">Next</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+
+    </div>
     
 {% endblock %}
